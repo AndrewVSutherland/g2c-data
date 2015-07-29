@@ -1,0 +1,17 @@
+1) Resynching my fork to master
+   git checkout master
+   git pull upstream master
+2) create a new branch for making changes
+   git checkout -b mynewbranch
+3) edit files
+4) commit -- note you need to have gone git config user.email, user.name once on the current matchine
+    git add lmfdb
+    git commit -m "description of chnages"
+5) push committed files
+    git push origin mynewbranch
+6) submit pull request on github
+7) once pull request has been merged (you will be notified via e-mail or can check on github), cleanup as follows
+   git checkout master
+   git pull upstream master
+   git push origin master
+   git branch -d mynewbranch
