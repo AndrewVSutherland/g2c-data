@@ -251,6 +251,7 @@ def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilber
                 p = a[0]; a1 = a[1]; a2 = a[2]
                 lfactors[p] = [int(1),int(-a1),int(a2),int(-p*a1),int(p*p)]
             lfunc["euler_factors"] = str([lfactors[p] for p in prime_range(0,100)])
+            lfunc["bad_lfactors"] = bad_lfactors
             lfunc["special_values"] = t[3] # [[float(x[0]),float(x[1])] for x in pari(t[3])] 
             lfunc["zeros"] = t[4] # [float(x) for x in pari(t[4])]
             rank = len([x for x in eval(t[4]) if x == 0])
@@ -266,6 +267,7 @@ def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilber
             lfunc["motivic_weight"] = int(1)
             lfunc["primitive"] = true if real_end_alg[stgroup] == "R" else false
             lfunc["instances"] = [ "/L/Genus2Curve/Q/%d/%s"%(cond,class_labels[hash].split(".")[-1]) ]
+            lfunc["central_character"] = "%d.1"%(cond)
             Lfunctions.append(lfunc)
         classes.append(rec)
     return classes,Lfunctions
