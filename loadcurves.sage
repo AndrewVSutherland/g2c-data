@@ -1,3 +1,5 @@
+import ast
+
 # Real endomorphism algebra over Qbar: End(A_\Qbar) \otimes R, as determined by ST^0(A) = U(1),SU(2),U(1)xSU(2),SU(2)xSU(2),USp(4) -- see FKRS12
 real_geom_end_alg = { \
 "C_1" : "M_2(C)", \
@@ -110,6 +112,19 @@ real_end_alg = { \
 "USp(4)": "R" \
 }
 
+# Map automorphism GAP ids to string labels (eventually these should be labels of automorphism groups in the LMFDB), storing pairs of ints in mongo-DB is unhelpful
+aut_grp_ids = {
+"[2,1]" : "2G1",\
+"[4,1]" : "4G1",\
+"[4,2]" : "4G2",\
+"[6,2]" : "6G2",\
+"[8,3]" : "8G3",\
+"[10,2]" : "10G2",\
+"[12,4]" : "12G4",\
+"[24,8]" : "24G8",\
+"[48,29]" : "48G29",\
+}
+
 def igusa_clebsch_to_igusa(I):
     # Conversion from Igusa-Clebsch to Igusa
     J2 = I[0]//8
@@ -175,19 +190,19 @@ def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilber
     ecproduct_dict = {}
     for r in open(ecproduct_file):
         s = r.split(":")
-        ecproduct_dict[int(s[0])] = [eval(s[1]),eval(s[2])]
+        ecproduct_dict[int(s[0])] = [ast.literal_eval(s[1]),ast.literal_eval(s[2])]
     ecquadratic_dict = {}
     for r in open(ecquadratic_file):
         s = r.split(":")
-        ecquadratic_dict[int(s[0])] = eval(s[1])
+        ecquadratic_dict[int(s[0])] = ast.literal_eval(s[1])
     mfproduct_dict = {}
     for r in open(mfproduct_file):
         s = r.split(":")
-        mfproduct_dict[int(s[0])] = eval(s[1])
+        mfproduct_dict[int(s[0])] = ast.literal_eval(s[1])
     mfhilbert_dict = {}
     for r in open(mfhilbert_file):
         s = r.split(":")
-        mfhilbert_dict[int(s[0])] = eval(s[1])
+        mfhilbert_dict[int(s[0])] = ast.literal_eval(s[1])
     R.<x>=PolynomialRing(QQ)
     hashes = {}
     classes = []
@@ -206,7 +221,7 @@ def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilber
         badprimes = prime_factors(int(s[1]))
         badpolys = s[7].split(",")
         bad_lfactors = [[int(badprimes[i]),[int(c) for c in R(badpolys[i]).list()]] for i in range(len(badprimes))]
-        good_lfactors = [[int(a[0]),int(a[1]),int(a[2])] for a in eval(s[16])]
+        good_lfactors = [[int(a[0]),int(a[1]),int(a[2])] for a in ast.literal_eval(s[16])]
         stgroup = s[8].strip()
         is_gl2_type = true if real_end_alg[stgroup] == "R x R" or real_end_alg[stgroup] == "C" else false
         rec = {"label":class_labels[hash],"cond":cond,"hash":hash,"Lhash":str(hash),"root_number":int(s[6]),"st_group":stgroup,"real_geom_end_alg":real_geom_end_alg[stgroup],"is_gl2_type":is_gl2_type,"bad_lfactors":bad_lfactors}
@@ -313,25 +328,29 @@ def loadcurves(filename,iso_classes):
         abs_disc = int(ZZ(s[0]))
         disc_key = make_disc_key(ZZ(s[0]))
         disc_sign = int(s[4])
-        igusa_clebsch = [str(i) for i in eval(s[5])]
-        igusa = [str(i) for i in igusa_clebsch_to_igusa(eval(s[5]))]
-        g2inv = [str(i) for i in igusa_to_g2 (igusa_clebsch_to_igusa(eval(s[5])))]
-        aut_grp = [int(n) for n in eval(s[9])]
-        geom_aut_grp = [int(n) for n in eval(s[10])]
-        torsion = [int(n) for n in eval(s[11])]
+        igusa_clebsch = [str(i) for i in ast.literal_eval(s[5])]
+        igusa = [str(i) for i in igusa_clebsch_to_igusa(ast.literal_eval(s[5]))]
+        g2inv = [str(i) for i in igusa_to_g2 (igusa_clebsch_to_igusa(ast.literal_eval(s[5])))]
+        aut_grp = [int(n) for n in ast.literal_eval(s[9])]
+        geom_aut_grp = [int(n) for n in ast.literal_eval(s[10])]
+        aut_grp_id = aut_grp_ids["".join(s[9].split())] # use join of null split to remove whitespace
+        geom_aut_grp_id = aut_grp_ids["".join(s[10].split())]
+        torsion = [int(n) for n in ast.literal_eval(s[11])]
         torsion_order = int(prod(torsion))
-        two_selmer_rank = int(eval(s[12]))
-        has_square_sha = int(eval(s[13]))
+        two_selmer_rank = int(ast.literal_eval(s[12]))
+        has_square_sha = int(ast.literal_eval(s[13]))
         assert has_square_sha in [0,1]
         has_square_sha = true if has_square_sha == 1 else false
-        locally_solvable = int(eval(s[14]))
+        locally_solvable = int(ast.literal_eval(s[14]))
         assert locally_solvable in [0,1]
         locally_solvable = true if locally_solvable == 1 else false
-        globally_solvable = int(eval(s[15]))
+        globally_solvable = int(ast.literal_eval(s[15]))
         assert globally_solvable in [-1,0,1]
         min_eqn = [[int(a) for a in f.list()],[int(a) for a in h.list()]]
         analytic_rank = iso_class["analytic_rank"]
-        rec = {"label":label,"cond":cond,"class":clabel,"abs_disc":abs_disc,"disc_key":disc_key,"disc_sign":disc_sign,"min_eqn":min_eqn,"igusa_clebsch":igusa_clebsch,"igusa":igusa,"g2inv":g2inv,"aut_grp":aut_grp,"geom_aut_grp":geom_aut_grp,
+        rec = {"label":label,"cond":cond,"class":clabel,"abs_disc":abs_disc,"disc_key":disc_key,"disc_sign":disc_sign,"min_eqn":min_eqn,"igusa_clebsch":igusa_clebsch,"igusa":igusa,"g2inv":g2inv,
+                    "aut_grp":aut_grp,"geom_aut_grp":geom_aut_grp, # remove this line once these are no longer needed
+                    "aut_grp_id":aut_grp_id,"geom_aut_grp_id":geom_aut_grp_id,
                    "torsion":torsion,"torsion_order":torsion_order,"num_rat_wpts":num_rat_wpts,"analytic_rank":analytic_rank,"two_selmer_rank":two_selmer_rank,"has_square_sha":has_square_sha,"locally_solvable":locally_solvable,"globally_solvable":globally_solvable}
         # duplicate certain attributes from isogeny class for search purposes
         rec["st_group"] = stgroup
