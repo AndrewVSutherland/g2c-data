@@ -110,6 +110,24 @@ real_end_alg = { \
 "USp(4)": "R" \
 }
 
+def igusa_clebsch_to_igusa(I):
+    # Conversion from Igusa-Clebsch to Igusa
+    J2 = I[0]//8
+    J4 = (4*J2**2 - I[1])//96
+    J6 = (8*J2**3 - 160*J2*J4 - I[2])//576
+    J8 = (J2*J6 - J4**2)//4
+    J10 = I[3]//4096
+    return [J2,J4,J6,J8,J10]
+
+def igusa_to_g2(J):
+    # Conversion from Igusa to G2
+    if J[0] != 0:
+        return [J[0]**5/J[4], J[0]**3*J[1]/J[4], J[0]**2*J[2]/J[4]]
+    elif J[1] != 0:
+        return [0, J[1]**5/J[4]**2, J[1]*J[2]/J[4]]
+    else:
+        return [0,0,J[2]**5/J[4]**3]
+
 def qdisc(n):
     d = ZZ(n).squarefree_part()
     return d if d%4 == 0 or d%4 == 1 else 4*d
@@ -118,6 +136,10 @@ def make_disc_key(D):
     Dz = D.abs()
     D1 = int(Dz.log(10)) if Dz else 0
     return '%03d%s' % (D1, str(Dz))
+    
+def list2string(li):
+    li2 = [str(x) for x in li]
+    return ','.join(li2)
 
 # construct isogeny class labels -- returns a dictionary indexed by hash
 def loadclasslabels(filename):
@@ -149,7 +171,7 @@ def scanLdata(filename):
 
 # to deal with memory issues we process isogeny classes in half-open conductor intervals [a,b)
 # this seems inefficient but isn't really, the time to rescan the file is negligible compares to the time to process all the Lfactors
-def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilbert_file,mincond,maxcond,class_labels,Ldatafile,Ldataoffsets):
+def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilbert_file,mincond,maxcond,class_labels,Ldatafile,Ldataoffsets,load_plot=1):
     ecproduct_dict = {}
     for r in open(ecproduct_file):
         s = r.split(":")
@@ -170,6 +192,7 @@ def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilber
     hashes = {}
     classes = []
     Lfunctions = []
+    Linstances = []
     for r in open(filename):
         s = r.split(":")
         cond=int(s[1])
@@ -183,49 +206,10 @@ def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilber
         badprimes = prime_factors(int(s[1]))
         badpolys = s[7].split(",")
         bad_lfactors = [[int(badprimes[i]),[int(c) for c in R(badpolys[i]).list()]] for i in range(len(badprimes))]
-        good_lfactors = [[int(a[0]),int(a[1]),int(a[2])] for a in eval(s[13])]
+        good_lfactors = [[int(a[0]),int(a[1]),int(a[2])] for a in eval(s[16])]
         stgroup = s[8].strip()
         is_gl2_type = true if real_end_alg[stgroup] == "R x R" or real_end_alg[stgroup] == "C" else false
-        rec = {"label":class_labels[hash],"cond":cond,"hash":hash,"root_number":int(s[6]),"st_group":stgroup,"real_end_alg":real_end_alg[stgroup],"real_geom_end_alg":real_geom_end_alg[stgroup],"is_gl2_type":is_gl2_type,"bad_lfactors":bad_lfactors,"good_lfactors":good_lfactors}
-        rec["rat_end_alg"] = "Q" if real_end_alg[stgroup] == "R" else ""
-        rec["rat_geom_end_alg"] = "Q" if real_geom_end_alg[stgroup] == "R" else ""
-        rec["geom_end_field"] = "1.1.1.1" if real_geom_end_alg[stgroup] == "R" or stgroup == "G_{3,3}" or stgroup == "E_1" else ""
-        if stgroup == "USp(4)":
-            rec["is_simple"] = true
-            rec["is_geom_simple"] = true
-        if real_geom_end_alg[stgroup] == "M_2(C)":
-            rec["is_geom_simple"] = false
-        if real_geom_end_alg[stgroup] == "C x R":
-            rec["is_geom_simple"] = false
-        if stgroup == "F_{ac}":
-            rec["is_simple"] = true
-            rec["is_geom_simple"] = true
-        if hash in ecproduct_dict:
-            rec["ecproduct"] = ecproduct_dict[hash][0]
-            rec["is_simple"] = false
-            rec["is_geom_simple"] = false
-            if stgroup == "G_{3,3}":
-                rec["rat_end_alg"] = "Q x Q"
-                rec["rat_geom_end_alg"] = "Q x Q"
-            if stgroup == "E_1":
-                rec["rat_end_alg"] = "M_2(Q)"
-                rec["rat_geom_end_alg"] = "M_2(Q)"
-            if stgroup == "N(G_{1,3})":
-                rec["rat_end_alg"] = "Q x Q"
-                n = min(ecproduct_dict[hash][1])
-                assert n < 0
-                n = qdisc(n)
-                rec["rat_geom_end_alg"] = "Q x Qsqrt%d"%(n)
-                rec["geom_end_field"] = "2.0.%d.1"%(-n)
-        if not "is_simple" in rec:
-            for a in good_lfactors:
-                if a[0] > 100: break
-                Lpoly = R([1,-a[1],a[2],-a[0]*a[1],a[0]*a[0]])
-                if Lpoly.is_irreducible():
-                    rec["is_simple"] = true
-                    if rec["geom_end_field"] == "1.1.1.1":
-                        rec["is_geom_simple"] = true
-                    break
+        rec = {"label":class_labels[hash],"cond":cond,"hash":hash,"Lhash":str(hash),"root_number":int(s[6]),"st_group":stgroup,"real_geom_end_alg":real_geom_end_alg[stgroup],"is_gl2_type":is_gl2_type,"bad_lfactors":bad_lfactors}
         if hash in ecquadratic_dict:
             rec["ecquadratic"] = ecquadratic_dict[hash]
         if hash in mfproduct_dict:
@@ -233,12 +217,15 @@ def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilber
         if hash in mfhilbert_dict:
             rec["mfhilbert"] = mfhilbert_dict[hash]
         if hash in Ldataoffsets:
-            lfunc = {"hash":hash}
+            lfunc = {"Lhash":str(hash)}
+            lfunc["load_key"] = "G2Q"
             fp = open(Ldatafile)
             fp.seek(Ldataoffsets[hash])
             lfuncdata = fp.readline()
             fp.close()
             t = lfuncdata.strip().split(":")
+            # L-function data format
+            # hash (string) : cond (int) : root_number (int) : analytic_rank (int) : dirichlet_coeffs (list of 9 ints a2,...,a10) : leading_term (float): positive_zeros (list of floats) : plot_delta : plot_values (list of floats) 
             assert t[0] == str(hash)
             assert int(t[1]) == cond
             assert int(t[2]) == int(s[6])
@@ -249,39 +236,68 @@ def loadclasses(filename,ecproduct_file,ecquadratic_file,mfproduct_file,mfhilber
                 if a[0] >= 100:
                     break
                 p = a[0]; a1 = a[1]; a2 = a[2]
-                lfactors[p] = [int(1),int(-a1),int(a2),int(-p*a1),int(p*p)]
-            lfunc["euler_factors"] = str([lfactors[p] for p in prime_range(0,100)])
+                lfactors[p] = [int(1),int(a1),int(a2),int(p*a1),int(p*p)]
+            lfunc["euler_factors"] = [[int(a) for a in lfactors[p]] for p in prime_range(0,100)]
             lfunc["bad_lfactors"] = bad_lfactors
-            lfunc["special_values"] = t[3] # [[float(x[0]),float(x[1])] for x in pari(t[3])] 
-            lfunc["zeros"] = t[4] # [float(x) for x in pari(t[4])]
-            rank = len([x for x in eval(t[4]) if x == 0])
-            lfunc["order_of_vanishing"] = int(rank)
-            rec["analytic_rank"] = int(rank)
-            lfunc["plot"] = t[5] # [[float(x[0]),float(x[1])] for x in pari(t[5])]
-            lfunc["root_number"] = t[2]
+            lfunc["root_number"] = int(t[2])
+            lfunc["order_of_vanishing"] = int(t[3])
+            rec["analytic_rank"] = int(t[3])
+            As = [int(x) for x in pari(t[4])]
+            lfunc["A2"] = int(As[0])
+            lfunc["A3"] = int(As[1])
+            lfunc["A4"] = int(As[2])
+            lfunc["A5"] = int(As[3])
+            lfunc["A6"] = int(As[4])
+            lfunc["A7"] = int(As[5])
+            lfunc["A8"] = int(As[6])
+            lfunc["A9"] = int(As[7])
+            lfunc["A10"] = int(As[8])
+            lfunc["a2"] = [float(As[0])/float(p),float(0)]
+            lfunc["a3"] = [float(As[1])/float(p),float(0)]
+            lfunc["a4"] = [float(As[2])/float(p),float(0)]
+            lfunc["a5"] = [float(As[3])/float(p),float(0)]
+            lfunc["a6"] = [float(As[4])/float(p),float(0)]
+            lfunc["a7"] = [float(As[5])/float(p),float(0)]
+            lfunc["a8"] = [float(As[6])/float(p),float(0)]
+            lfunc["a9"] = [float(As[7])/float(p),float(0)]
+            lfunc["a10"] = [float(As[8])/float(p),float(0)]
+            lfunc["leading_term"] = float(t[5])
+            lfunc["positive_zeros"] = [float(x) for x in pari(t[6])]
+            lfunc["z1"] = lfunc["positive_zeros"][0]
+            lfunc["z2"] = lfunc["positive_zeros"][1]
+            lfunc["z3"] = lfunc["positive_zeros"][2]
+            if load_plot:
+                lfunc["plot_delta"] = float(t[7])
+                lfunc["plot_values"] = [float(x) for x in pari(t[8])]
             lfunc["analytic_normalization"] = "1/2"
             lfunc["degree"] = int(4)
-            lfunc["gamma_factors"] = "[[],[0,0]]" # [[],[float(0),float(0)]] 
+            lfunc["gamma_factors"] = [[],[int(0),int(0)]]
             lfunc["conductor"] = cond
             lfunc["algebraic"] = true
             lfunc["motivic_weight"] = int(1)
             lfunc["primitive"] = true if real_end_alg[stgroup] == "R" else false
-            lfunc["instances"] = [ "/L/Genus2Curve/Q/%d/%s"%(cond,class_labels[hash].split(".")[-1]) ]
+            lfunc["origin"] = "Genus2Curve/Q/%d/%s"%(cond,class_labels[hash].split(".")[-1])
             lfunc["central_character"] = "%d.1"%(cond)
+            lfunc["self_dual"] = true
+            lfunc["coefficient_field"] = "1.1.1.1"
+            lfunc["st_group"] = stgroup
             Lfunctions.append(lfunc)
+            linst={"Lhash":str(hash)}
+            linst["url"]=lfunc["origin"]
+            linst["type"]="G2Q"
+            Linstances.append(linst)
         classes.append(rec)
-    return classes,Lfunctions
+    return classes,Lfunctions,Linstances
 
 def loadcurves(filename,iso_classes):
     R.<x>=PolynomialRing(QQ)
     cdlabels = {}
-    start = walltime()
     for r in open(filename):
         s = r.split(":")
         cond=int(s[1])
         hash=int(s[2])
         stgroup = s[8].strip()
-        iso_class = iso_classes.find_one({"hash":hash})
+        iso_class = iso_classes.find_one({"Lhash":str(hash)})
         clabel = iso_class["label"]
         cdlabel = clabel+"."+s[0]
         if not cdlabel in cdlabels:
@@ -294,28 +310,33 @@ def loadcurves(filename,iso_classes):
         g = 4*f + h^2
         assert g.discriminant() != 0 and (g.degree() == 5 or g.degree() == 6)
         num_rat_wpts = int(len(g.roots()) + 6-g.degree())
+        abs_disc = int(ZZ(s[0]))
         disc_key = make_disc_key(ZZ(s[0]))
         disc_sign = int(s[4])
-        inv = [str(i) for i in eval(s[5])]
+        igusa_clebsch = [str(i) for i in eval(s[5])]
+        igusa = [str(i) for i in igusa_clebsch_to_igusa(eval(s[5]))]
+        g2inv = [str(i) for i in igusa_to_g2 (igusa_clebsch_to_igusa(eval(s[5])))]
         aut_grp = [int(n) for n in eval(s[9])]
         geom_aut_grp = [int(n) for n in eval(s[10])]
         torsion = [int(n) for n in eval(s[11])]
         torsion_order = int(prod(torsion))
         two_selmer_rank = int(eval(s[12]))
+        has_square_sha = int(eval(s[13]))
+        assert has_square_sha in [0,1]
+        has_square_sha = true if has_square_sha == 1 else false
+        locally_solvable = int(eval(s[14]))
+        assert locally_solvable in [0,1]
+        locally_solvable = true if locally_solvable == 1 else false
+        globally_solvable = int(eval(s[15]))
+        assert globally_solvable in [-1,0,1]
         min_eqn = [[int(a) for a in f.list()],[int(a) for a in h.list()]]
-        rec = {"label":label,"cond":cond,"class":clabel,"disc_key":disc_key,"disc_sign":disc_sign,"min_eqn":min_eqn,"igusa_clebsch":inv,"aut_grp":aut_grp,"geom_aut_grp":geom_aut_grp,"torsion":torsion,"torsion_order":torsion_order,"num_rat_wpts":num_rat_wpts,"two_selmer_rank":two_selmer_rank}
-        if iso_class["rat_end_alg"] == "Q":
-            rec["end_ring"] = "Z"
-        if iso_class["rat_geom_end_alg"] == "Q":
-            rec["geom_end_ring"] = "Z"
+        analytic_rank = iso_class["analytic_rank"]
+        rec = {"label":label,"cond":cond,"class":clabel,"abs_disc":abs_disc,"disc_key":disc_key,"disc_sign":disc_sign,"min_eqn":min_eqn,"igusa_clebsch":igusa_clebsch,"igusa":igusa,"g2inv":g2inv,"aut_grp":aut_grp,"geom_aut_grp":geom_aut_grp,
+                   "torsion":torsion,"torsion_order":torsion_order,"num_rat_wpts":num_rat_wpts,"analytic_rank":analytic_rank,"two_selmer_rank":two_selmer_rank,"has_square_sha":has_square_sha,"locally_solvable":locally_solvable,"globally_solvable":globally_solvable}
         # duplicate certain attributes from isogeny class for search purposes
         rec["st_group"] = stgroup
         rec["real_geom_end_alg"] = real_geom_end_alg[stgroup]
         rec["is_gl2_type"] = iso_class["is_gl2_type"]
-        if "is_simple" in iso_class.keys():
-            rec["is_simple"] = iso_class["is_simple"]
-        if "is_geom_simple" in iso_class.keys():
-            rec["is_geom_simple"] = iso_class["is_geom_simple"]
         cdlabels[cdlabel][label] = rec
     curves = [ rec for v in cdlabels.values() for rec in v.values() ]
     return curves
@@ -335,3 +356,12 @@ def convert_ecproduct_labels(infile,outfile,lmfdb):
         cm2 = e2["cm"]
         outfp.write("%s:['%s','%s']:[%d,%d]\n"%(s[1],label1,label2,cm1,cm2))
     outfp.close()
+
+def lookup_numberfield(min_eqn,lmfdb):
+    def from_polynomial(cls, pol):
+        pol = PolynomialRing(QQ, 'x')(str(pol))
+        pol *= pol.denominator()
+        R = pol.parent()
+        pol = R(pari(pol).polredabs())
+        return cls.from_coeffs([int(c) for c in pol.coefficients(sparse=False)])
+

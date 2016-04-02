@@ -1,0 +1,1 @@
+disc : cond : hash : min_eqn : disc_sign : igusa_clebsch : root_number : bad_lfactors : st_group : aut_grp : geom_aut_grp : torsion : two_selmer_rank : has_square_sha : locally_solvable : globally_solvable : good_lfactors
