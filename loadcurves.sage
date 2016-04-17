@@ -112,19 +112,6 @@ real_end_alg = { \
 "USp(4)": "R" \
 }
 
-# Map automorphism GAP ids to string labels (eventually these should be labels of automorphism groups in the LMFDB), storing pairs of ints in mongo-DB is unhelpful
-aut_grp_ids = {
-"[2,1]" : "2G1",\
-"[4,1]" : "4G1",\
-"[4,2]" : "4G2",\
-"[6,2]" : "6G2",\
-"[8,3]" : "8G3",\
-"[10,2]" : "10G2",\
-"[12,4]" : "12G4",\
-"[24,8]" : "24G8",\
-"[48,29]" : "48G29",\
-}
-
 def igusa_clebsch_to_igusa(I):
     # Conversion from Igusa-Clebsch to Igusa
     J2 = I[0]//8
@@ -333,8 +320,8 @@ def loadcurves(filename,iso_classes):
         g2inv = [str(i) for i in igusa_to_g2 (igusa_clebsch_to_igusa(ast.literal_eval(s[5])))]
         aut_grp = [int(n) for n in ast.literal_eval(s[9])]
         geom_aut_grp = [int(n) for n in ast.literal_eval(s[10])]
-        aut_grp_id = aut_grp_ids["".join(s[9].split())] # use join of null split to remove whitespace
-        geom_aut_grp_id = aut_grp_ids["".join(s[10].split())]
+        aut_grp_id = "".join(s[9].split()) # use join of null split to remove whitespace
+        geom_aut_grp_id = "".join(s[10].split())
         torsion = [int(n) for n in ast.literal_eval(s[11])]
         torsion_order = int(prod(torsion))
         two_selmer_rank = int(ast.literal_eval(s[12]))
