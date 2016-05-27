@@ -68,6 +68,7 @@ if curves:
 print "inserted %d curves in %.3f secs"%(db.new_curves.count(),walltime()-start)
 db.new_curves.ensure_index("label")
 db.new_curves.ensure_index("cond")
+db.new_curves.ensure_index("class")
 db.new_curves.ensure_index("abs_disc")
 db.new_curves.ensure_index("disc_key")
 db.new_curves.ensure_index("is_gl2_type")
